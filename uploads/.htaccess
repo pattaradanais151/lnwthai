@@ -1,0 +1,11 @@
+# สำรองไว้เท่านั้น — ไฟล์จริงเก็บที่ Supabase
+Options -Indexes -ExecCGI
+<FilesMatch "\.(php|phtml|php\d|phar|pl|py|cgi|sh|htaccess)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

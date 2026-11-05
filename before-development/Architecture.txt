@@ -1,0 +1,11 @@
+Browser ──HTTPS──> InfinityFree (Apache + PHP 8.x)
+                     ├─ Public pages  (/ , /login, /register, /account)
+                     ├─ actions/      (POST เท่านั้น + CSRF)
+                     ├─ admin/        (Session แยก cookie: LNWADM, path=/admin/)
+                     ├─ includes/     (Core: DB, Auth, Rbac, Audit, Storage) ← ปิดการเข้าถึง
+                     ├─ config/       (Secrets)                              ← ปิดการเข้าถึง
+                     │
+                     ├──PDO──> MySQL/MariaDB (ข้อมูลหลักทั้งหมด)
+                     └──cURL HTTPS──> Supabase Storage REST
+                                       ├─ product-images   (Public)
+                                       └─ payment-evidence (Private → Signed URL)

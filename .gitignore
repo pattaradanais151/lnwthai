@@ -1,0 +1,6 @@
+config/config.php
+storage/logs/*
+storage/sessions/*
+storage/tmp/*
+storage/install.lock
+!storage/.htaccess

@@ -1,0 +1,63 @@
+htdocs/
+├── .htaccess
+├── .gitignore
+├── index.php
+├── actions/
+│   ├── login.php
+│   ├── logout.php
+│   └── register.php
+├── admin/
+│   ├── index.php
+│   ├── login.php
+│   ├── system-check.php
+│   ├── actions/
+│   │   ├── login.php
+│   │   └── logout.php
+│   └── includes/
+│       ├── .htaccess
+│       ├── guard.php
+│       ├── header.php
+│       └── footer.php
+├── assets/
+│   ├── css/app.css
+│   ├── js/app.js
+│   ├── js/theme-init.js
+│   └── images/logo.svg
+├── config/
+│   ├── .htaccess
+│   ├── config.sample.php
+│   └── config.php            ← สร้างเองจาก sample (ห้าม commit)
+├── database/
+│   ├── .htaccess
+│   └── schema.sql
+├── includes/
+│   ├── .htaccess
+│   ├── bootstrap.php
+│   ├── helpers.php
+│   ├── icons.php
+│   ├── DB.php
+│   ├── Session.php
+│   ├── Csrf.php
+│   ├── RateLimiter.php
+│   ├── Auth.php
+│   ├── Rbac.php
+│   ├── Audit.php
+│   ├── Validator.php
+│   ├── FileValidator.php
+│   ├── SupabaseStorage.php
+│   ├── MediaService.php
+│   └── layout/
+│       ├── header.php
+│       ├── footer.php
+│       ├── flash.php
+│       └── error.php
+├── install/
+│   └── index.php             ← ลบทิ้งหลังติดตั้ง
+├── pages/
+│   ├── account.php
+│   ├── login.php
+│   └── register.php
+├── storage/
+│   └── .htaccess             (ระบบสร้าง logs/, sessions/, tmp/ ให้อัตโนมัติ)
+└── uploads/
+    └── .htaccess             (สำรองไว้ ปิดการรันสคริปต์)

@@ -1,0 +1,8 @@
+users ─< user_roles >─ roles ─< role_permissions >─ permissions
+users ─< user_permissions >─ permissions      (allow/deny รายบุคคล)
+users ─< user_sessions,  users ─< audit_logs (actor)
+games ─< categories,  games ─< products ─< product_images
+products ─< game_accounts  (สต็อกจริง เข้ารหัส)
+users ─< orders ─< order_items >─ game_accounts
+orders ─< payment_submissions,  orders ─< order_status_history,  orders ─< refunds
+game_accounts.reserved_order_id / sold_order_id → orders
