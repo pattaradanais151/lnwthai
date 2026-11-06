@@ -6,9 +6,23 @@ $__uid = (int) $__me['id'];
 $__roleNames = implode(', ', array_column(Rbac::roles($__uid), 'name'));
 $__active = $activeNav ?? '';
 $__menu = array_filter([
-    ['key' => 'dashboard', 'href' => url('admin/'), 'icon' => 'layout-dashboard', 'label' => 'แดชบอร์ด', 'perm' => null],
-    ['key' => 'system', 'href' => url('admin/system-check.php'), 'icon' => 'activity', 'label' => 'ตรวจสอบระบบ', 'perm' => 'system.check'],
-], static fn(array $i): bool => $i['perm'] === null || admin_can($i['perm']));
+    ['dashboard', 'admin/',                 'layout-dashboard', 'แดชบอร์ด',       []],
+    ['products',  'admin/products.php',     'package',          'สินค้า',          ['product.view']],
+    ['inventory', 'admin/inventory.php',    'key-round',        'คลังบัญชีเกม',    ['inventory.view']],
+    ['catalog',   'admin/catalog.php',      'gamepad-2',        'เกมและหมวดหมู่', ['game.manage', 'category.manage']],
+    ['vault',     'admin/vault.php',        'lock',             'การเข้ารหัส',     ['system.check']],
+    ['system',    'admin/system-check.php', 'activity',         'ตรวจสอบระบบ',     ['system.check']],
+], static function (array $item): bool {
+    if ($item[4] === []) {
+        return true;
+    }
+    foreach ($item[4] as $perm) {
+        if (admin_can($perm)) {
+            return true;
+        }
+    }
+    return false;
+});
 ?><!doctype html>
 <html lang="th">
 <head>
@@ -20,6 +34,8 @@ $__menu = array_filter([
 <link rel="icon" type="image/svg+xml" href="<?= e(asset('images/logo.svg')) ?>">
 <script src="<?= e(asset('js/theme-init.js')) ?>"></script>
 <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('css/store.css')) ?>">
+<link rel="stylesheet" href="<?= e(asset('css/admin.css')) ?>">
 <script src="<?= e(asset('js/app.js')) ?>" defer></script>
 <script src="<?= e(asset('js/admin.js')) ?>" defer></script>
 </head>
@@ -32,10 +48,8 @@ $__menu = array_filter([
       <span>Lnwthai</span><span class="badge badge-neutral">Admin</span>
     </a>
     <button type="button" class="icon-btn nav-toggle" data-nav-toggle aria-controls="admin-menu" aria-expanded="false" aria-label="เปิดเมนู"><?= icon('menu') ?></button>
-    <nav class="nav-links" id="admin-menu" aria-label="เมนูผู้ดูแล">
-      <?php foreach ($__menu as $__item): ?>
-        <a class="nav-link <?= $__active === $__item['key'] ? 'is-active' : '' ?>" href="<?= e($__item['href']) ?>"><?= icon($__item['icon']) ?><span><?= e($__item['label']) ?></span></a>
-      <?php endforeach; ?>
+    <nav class="nav-links" id="admin-menu" aria-label="บัญชีผู้ดูแล">
+      <a class="nav-link" href="<?= e(url('')) ?>" target="_blank" rel="noopener"><?= icon('shopping-bag') ?><span>ดูหน้าร้าน</span></a>
       <span class="user-chip" title="<?= e($__me['email']) ?>">
         <?= icon('user') ?><span><?= e($__me['display_name']) ?></span><span class="muted small">· <?= e($__roleNames) ?></span>
       </span>
@@ -49,6 +63,13 @@ $__menu = array_filter([
     </nav>
   </div>
 </header>
+<nav class="admin-subnav" aria-label="เมนูผู้ดูแล">
+  <div class="container admin-subnav-inner">
+    <?php foreach ($__menu as [$__key, $__path, $__icon, $__label]): ?>
+      <a class="subnav-link<?= $__active === $__key ? ' is-active' : '' ?>" href="<?= e(url($__path)) ?>"<?= $__active === $__key ? ' aria-current="page"' : '' ?>><?= icon($__icon) ?><span><?= e($__label) ?></span></a>
+    <?php endforeach; ?>
+  </div>
+</nav>
 <main id="main" class="section admin-main">
   <div class="container">
     <?php require LNW_ROOT . '/includes/layout/flash.php'; ?>

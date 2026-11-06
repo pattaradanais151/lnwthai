@@ -1,0 +1,31 @@
+htdocs/
+├── .htaccess                              ← แก้ (เพิ่ม Clean URLs)
+├── index.php                              ← แก้ (Homepage เต็มรูปแบบ)
+├── actions/
+│   ├── password.php                       ← ใหม่
+│   └── profile.php                        ← ใหม่
+├── assets/
+│   ├── css/store.css                      ← ใหม่
+│   └── js/store.js                        ← ใหม่
+├── database/
+│   ├── migrations/002_phase2_storefront.sql   ← ใหม่
+│   └── seed_demo.sql                      ← ใหม่ (ไม่บังคับ)
+├── includes/
+│   ├── Catalog.php                        ← ใหม่
+│   ├── CustomerOrders.php                 ← ใหม่
+│   ├── Format.php                         ← ใหม่
+│   ├── Settings.php                       ← ใหม่
+│   ├── icons.php                          ← แก้ (เพิ่มไอคอน)
+│   └── layout/
+│       ├── header.php                     ← แก้
+│       ├── footer.php                     ← แก้
+│       ├── account-nav.php                ← ใหม่
+│       ├── pagination.php                 ← ใหม่
+│       └── product-card.php               ← ใหม่
+└── pages/
+    ├── account.php                        ← แก้
+    ├── order.php                          ← ใหม่
+    ├── orders.php                         ← ใหม่
+    ├── product.php                        ← ใหม่
+    ├── purchases.php                      ← ใหม่
+    └── shop.php                           ← ใหม่

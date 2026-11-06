@@ -4,3 +4,5 @@ storage/sessions/*
 storage/tmp/*
 storage/install.lock
 !storage/.htaccess
+config/vault.key.php
+

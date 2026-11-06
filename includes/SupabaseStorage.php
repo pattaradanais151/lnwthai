@@ -2,6 +2,7 @@
 /**
  * Lnwthai — Supabase Storage REST client (server-side only)
  * Path: includes/SupabaseStorage.php
+ * Transport: PHP cURL (หลัก) → PHP HTTPS stream (สำรองเมื่อไม่มี cURL)
  */
 declare(strict_types=1);
 defined('LNW_ROOT') || exit;
@@ -17,8 +18,8 @@ final class SupabaseStorage
         if (!self::isConfigured()) {
             throw new StorageException('ยังไม่ได้ตั้งค่า Supabase (supabase.url / supabase.service_key)');
         }
-        if (!extension_loaded('curl')) {
-            throw new StorageException('PHP cURL extension ไม่พร้อมใช้งาน');
+        if (self::transport() === null) {
+            throw new StorageException('ไม่มีช่องทาง HTTPS: ต้องเปิด PHP cURL หรือ allow_url_fopen + openssl');
         }
         $this->url = rtrim((string) config('supabase.url'), '/');
         $this->key = (string) config('supabase.service_key');
@@ -29,6 +30,20 @@ final class SupabaseStorage
     {
         $url = rtrim((string) config('supabase.url', ''), '/');
         return preg_match('#^https://[a-z0-9.-]+$#i', $url) === 1 && strlen((string) config('supabase.service_key', '')) > 20;
+    }
+
+    /** @return 'curl'|'stream'|null */
+    public static function transport(): ?string
+    {
+        if (extension_loaded('curl') && function_exists('curl_init')) {
+            return 'curl';
+        }
+        if (filter_var(ini_get('allow_url_fopen'), FILTER_VALIDATE_BOOL)
+            && extension_loaded('openssl')
+            && in_array('https', stream_get_wrappers(), true)) {
+            return 'stream';
+        }
+        return null;
     }
 
     // ------------------------------------------------------------ objects
@@ -124,13 +139,14 @@ final class SupabaseStorage
                 $messages[] = "สร้าง bucket “{$id}” (" . ($public ? 'Public' : 'Private') . ')';
             }
         }
+        $messages[] = 'ช่องทางเชื่อมต่อ: ' . (self::transport() === 'curl' ? 'PHP cURL' : 'PHP HTTPS stream');
         return $messages;
     }
 
     /** ทดสอบครบวงจร: upload → public/private access → signed URL → delete */
     public function selfTest(): array
     {
-        $out = [];
+        $out = [['ok', 'ช่องทางเชื่อมต่อ: ' . (self::transport() === 'curl' ? 'PHP cURL' : 'PHP HTTPS stream')]];
         $pub = (string) config('supabase.public_bucket');
         $priv = (string) config('supabase.private_bucket');
         $name = '_healthcheck/' . bin2hex(random_bytes(8)) . '.png';
@@ -172,7 +188,7 @@ final class SupabaseStorage
     }
 
     // ------------------------------------------------------------ internals
-    private function headers(array $extra = []): array
+    private function authHeaders(array $extra = []): array
     {
         $h = ['apikey: ' . $this->key];
         if (str_starts_with($this->key, 'eyJ')) { // legacy JWT service_role key
@@ -188,12 +204,36 @@ final class SupabaseStorage
 
     private function request(string $method, string $path, ?string $body = null, array $headers = []): array
     {
-        $ch = curl_init($this->url . '/storage/v1/' . ltrim($path, '/'));
+        $res = $this->send($method, $this->url . '/storage/v1/' . ltrim($path, '/'), $body, $this->authHeaders($headers), $this->timeout);
+        $res['json'] = json_decode($res['body'], true);
+        return $res;
+    }
+
+    /** ใช้ตรวจ URL สาธารณะ/Signed URL โดยไม่ส่ง key */
+    private function httpStatus(string $url): int
+    {
+        return $this->send('GET', $url, null, [], 15)['status'];
+    }
+
+    /** @return array{status:int, body:string} */
+    private function send(string $method, string $url, ?string $body, array $headers, int $timeout): array
+    {
+        if (!str_starts_with($url, 'https://')) {
+            throw new StorageException('อนุญาตเฉพาะ HTTPS');
+        }
+        return self::transport() === 'curl'
+            ? $this->sendCurl($method, $url, $body, $headers, $timeout)
+            : $this->sendStream($method, $url, $body, $headers, $timeout);
+    }
+
+    private function sendCurl(string $method, string $url, ?string $body, array $headers, int $timeout): array
+    {
+        $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST  => $method,
-            CURLOPT_HTTPHEADER     => $this->headers($headers),
-            CURLOPT_TIMEOUT        => $this->timeout,
+            CURLOPT_HTTPHEADER     => $headers,
+            CURLOPT_TIMEOUT        => $timeout,
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
@@ -206,24 +246,55 @@ final class SupabaseStorage
         $response = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $error = curl_error($ch);
-        unset($ch);
+        unset($ch); // PHP 8.5: curl_close() deprecated
         if ($response === false) {
-            throw new StorageException('เชื่อมต่อ Supabase ไม่สำเร็จ: ' . $error);
+            throw new StorageException('เชื่อมต่อ Supabase ไม่สำเร็จ (cURL): ' . $this->scrub($error));
         }
-        return ['status' => $status, 'body' => (string) $response, 'json' => json_decode((string) $response, true)];
+        return ['status' => $status, 'body' => (string) $response];
     }
 
-    private function httpStatus(string $url): int
+    private function sendStream(string $method, string $url, ?string $body, array $headers, int $timeout): array
     {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_FOLLOWLOCATION => false,
-            CURLOPT_SSL_VERIFYPEER => true, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+        $headers[] = 'Connection: close';
+        $http = [
+            'method'           => $method,
+            'header'           => implode("\r\n", $headers),
+            'timeout'          => $timeout,
+            'ignore_errors'    => true,   // อ่าน body ของ 4xx/5xx ได้
+            'follow_location'  => 0,
+            'max_redirects'    => 0,
+            'protocol_version' => 1.1,
+        ];
+        if ($body !== null) {
+            $http['content'] = $body;
+        }
+        $ctx = stream_context_create([
+            'http' => $http,
+            'ssl'  => ['verify_peer' => true, 'verify_peer_name' => true, 'allow_self_signed' => false],
         ]);
-        curl_exec($ch);
-        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        unset($ch);
-        return $code;
+
+        $fp = @fopen($url, 'rb', false, $ctx);
+        if ($fp === false) {
+            $err = error_get_last()['message'] ?? 'unknown error';
+            throw new StorageException('เชื่อมต่อ Supabase ไม่สำเร็จ (stream): ' . $this->scrub($err));
+        }
+        $meta = stream_get_meta_data($fp);
+        $response = stream_get_contents($fp);
+        fclose($fp);
+
+        $status = 0;
+        foreach ((array) ($meta['wrapper_data'] ?? []) as $line) {
+            if (is_string($line) && preg_match('#^HTTP/\S+\s+(\d{3})#', $line, $m) === 1) {
+                $status = (int) $m[1];
+            }
+        }
+        return ['status' => $status, 'body' => $response === false ? '' : $response];
+    }
+
+    /** ตัด query string (เช่น token ของ Signed URL) ออกจากข้อความ error */
+    private function scrub(string $message): string
+    {
+        return (string) preg_replace('/\?[^\s"\']*/', '?…', $message);
     }
 
     private function expectOk(array $res, string $operation): void
@@ -231,7 +302,7 @@ final class SupabaseStorage
         if ($res['status'] >= 200 && $res['status'] < 300) {
             return;
         }
-        $msg = is_array($res['json']) ? (string) ($res['json']['message'] ?? $res['json']['error'] ?? '') : '';
+        $msg = is_array($res['json'] ?? null) ? (string) ($res['json']['message'] ?? $res['json']['error'] ?? '') : '';
         throw new StorageException("{$operation} ไม่สำเร็จ (HTTP {$res['status']})" . ($msg !== '' ? ": {$msg}" : ''));
     }
 

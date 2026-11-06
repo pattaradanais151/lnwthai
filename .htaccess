@@ -1,4 +1,4 @@
-# Lnwthai — Root .htaccess
+# Lnwthai — Root .htaccess (Phase 2)
 Options -Indexes
 DirectoryIndex index.php
 
@@ -16,7 +16,9 @@ DirectoryIndex index.php
     RewriteRule \.(sql|log|ini|bak|lock|env|sample|dist|md)$ - [F,L,NC]
 
     # Clean URLs
-    RewriteRule ^(login|register|account)/?$ pages/$1.php [L,QSA]
+    RewriteRule ^(login|register|account|shop|orders|purchases)/?$ pages/$1.php [L,QSA]
+    RewriteRule ^product/([a-z0-9-]{1,190})/?$ pages/product.php?slug=$1 [L,QSA]
+    RewriteRule ^order/([A-Za-z0-9-]{1,30})/?$ pages/order.php?no=$1 [L,QSA]
 </IfModule>
 
 <FilesMatch "\.(sql|log|ini|bak|lock|env|md)$">
@@ -34,4 +36,7 @@ DirectoryIndex index.php
     ExpiresByType text/css "access plus 30 days"
     ExpiresByType application/javascript "access plus 30 days"
     ExpiresByType image/svg+xml "access plus 30 days"
+    ExpiresByType image/webp "access plus 30 days"
+    ExpiresByType image/png "access plus 30 days"
+    ExpiresByType image/jpeg "access plus 30 days"
 </IfModule>

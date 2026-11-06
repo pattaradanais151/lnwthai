@@ -23,10 +23,14 @@ final class Rbac
         );
     }
 
+    /** ระดับสูงสุดของผู้ใช้ — บทบาท owner นับเฉพาะเมื่อเป็น Owner ที่ถูกล็อกจริง */
     public static function level(int $userId): int
     {
         $max = 0;
         foreach (self::roles($userId) as $role) {
+            if ($role['slug'] === 'owner' && !self::isOwner($userId)) {
+                continue;
+            }
             $max = max($max, (int) $role['role_level']);
         }
         return $max;
@@ -35,8 +39,11 @@ final class Rbac
     public static function isOwner(int $userId): bool
     {
         if (!isset(self::$ownerCache[$userId])) {
-            $lock = (int) DB::value('SELECT COALESCE(owner_lock, 0) FROM users WHERE id = ?', [$userId]);
-            self::$ownerCache[$userId] = $lock === 1 && in_array('owner', array_column(self::roles($userId), 'slug'), true);
+            $row = DB::one('SELECT owner_lock, account_type FROM users WHERE id = ?', [$userId]);
+            self::$ownerCache[$userId] = $row !== null
+                && (int) $row['owner_lock'] === 1
+                && $row['account_type'] === 'staff'
+                && in_array('owner', array_column(self::roles($userId), 'slug'), true);
         }
         return self::$ownerCache[$userId];
     }
@@ -61,7 +68,10 @@ final class Rbac
         );
     }
 
-    /** Effective permissions = role perms ∪ user allow − user deny. Owner = ทั้งหมด */
+    /**
+     * Effective permissions = role perms ∪ user allow − user deny
+     * Owner (owner_lock = 1) = ทั้งหมด · บทบาท owner ที่ไม่ถูกล็อกจะไม่ให้สิทธิ์ใด ๆ
+     */
     public static function permissions(int $userId): array
     {
         if (isset(self::$permCache[$userId])) {
@@ -75,11 +85,11 @@ final class Rbac
         }
 
         $rows = DB::all(
-            'SELECT DISTINCT p.slug FROM user_roles ur
-             JOIN roles r ON r.id = ur.role_id AND r.is_staff = 1
+            "SELECT DISTINCT p.slug FROM user_roles ur
+             JOIN roles r ON r.id = ur.role_id AND r.is_staff = 1 AND r.slug <> 'owner'
              JOIN role_permissions rp ON rp.role_id = ur.role_id
              JOIN permissions p ON p.id = rp.permission_id
-             WHERE ur.user_id = ?',
+             WHERE ur.user_id = ?",
             [$userId]
         );
         $set = array_fill_keys(array_column($rows, 'slug'), true);

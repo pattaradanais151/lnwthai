@@ -1,0 +1,26 @@
+htdocs/
+├── .gitignore                          ← แก้ (เพิ่ม 1 บรรทัด)
+├── config/
+│   ├── config.php / config.sample.php  ← แก้ (เพิ่มส่วน vault)
+│   └── vault.key.php                   ← สร้างเองตามหน้า "การเข้ารหัส" (ห้าม commit)
+├── database/migrations/003_phase3_inventory.sql   ← ใหม่
+├── includes/
+│   ├── Vault.php                       ← ใหม่
+│   ├── Inventory.php                   ← ใหม่
+│   ├── Str.php                         ← ใหม่
+│   ├── Format.php                      ← แก้ (ไฟล์เต็ม)
+│   └── MediaService.php                ← แก้ (ไฟล์เต็ม)
+├── assets/css/admin.css                ← ใหม่
+└── admin/
+    ├── includes/guard.php              ← แก้ (ไฟล์เต็ม)
+    ├── includes/header.php             ← แก้ (ไฟล์เต็ม · เพิ่มแถบเมนูรอง)
+    ├── products.php                    ← ใหม่
+    ├── product-edit.php                ← ใหม่
+    ├── catalog.php                     ← ใหม่
+    ├── inventory.php                   ← ใหม่
+    ├── inventory-reveal.php            ← ใหม่
+    ├── vault.php                       ← ใหม่
+    └── actions/
+        ├── products.php                ← ใหม่
+        ├── catalog.php                 ← ใหม่
+        └── inventory.php               ← ใหม่

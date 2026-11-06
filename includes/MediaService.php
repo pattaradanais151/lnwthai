@@ -9,7 +9,12 @@ defined('LNW_ROOT') || exit;
 
 final class MediaService
 {
-    /** รูปสินค้า/แบนเนอร์ → Public bucket */
+    public static function available(): bool
+    {
+        return SupabaseStorage::isConfigured() && SupabaseStorage::transport() !== null;
+    }
+
+    /** รูปสินค้า/เกม/แบนเนอร์ → Public bucket */
     public static function uploadPublicImage(mixed $file, string $prefix): array
     {
         $info = FileValidator::image($file, (int) config('upload.max_image_bytes', 5242880));
@@ -55,5 +60,33 @@ final class MediaService
             throw new StorageException('ไม่อนุญาตให้ลบไฟล์ใน bucket นี้');
         }
         (new SupabaseStorage())->delete($bucket, [$path]);
+    }
+
+    /** ลบแบบไม่ทำให้การทำงานหลักล้ม (บันทึก log แทน) */
+    public static function deleteQuietly(string $bucket, ?string $path): void
+    {
+        if ($path === null || $path === '') {
+            return;
+        }
+        try {
+            self::delete($bucket, $path);
+        } catch (Throwable $e) {
+            error_log('Media delete failed (' . $bucket . '/' . $path . '): ' . $e->getMessage());
+        }
+    }
+
+    /** แปลง public URL ของ bucket สาธารณะกลับเป็น storage path (ใช้ลบไฟล์เก่า) */
+    public static function publicPathFromUrl(?string $url): ?string
+    {
+        if (!is_string($url) || $url === '') {
+            return null;
+        }
+        $prefix = rtrim((string) config('supabase.url', ''), '/') . '/storage/v1/object/public/'
+            . (string) config('supabase.public_bucket') . '/';
+        if (!str_starts_with($url, $prefix)) {
+            return null;
+        }
+        $path = rawurldecode(substr($url, strlen($prefix)));
+        return !str_contains($path, '..') && preg_match('#^[A-Za-z0-9/_.-]{1,255}$#', $path) === 1 ? $path : null;
     }
 }
